@@ -1,9 +1,7 @@
-streamlit==1.32.0
-pandas==2.2.1
-geopandas==0.14.3
-pyogrio==0.7.2
-shapely==2.0.3
-pyproj==3.6.1
-networkx==3.2.1
-folium==0.15.1
-streamlit-folium==0.19.0
+streamlit
+pandas
+shapely
+pyproj
+networkx
+folium
+streamlit-folium
