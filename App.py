@@ -9,7 +9,7 @@ from utils.data_loader import procesar_zip_en_memoria, unificar_dataframes
 from utils.geospatial import dataframe_a_geodataframe
 from utils.network import construir_grafo, obtener_ruta_upstream
 
-# 1. Configuración de la página
+# 1. Configuración de página
 st.set_page_config(
     page_title="Geoportal de Ingeniería GPS",
     page_icon="🌍",
@@ -17,20 +17,20 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. Funciones cacheadas para optimizar memoria y CPU
-@st.cache_data(show_spinner="Leyendo archivos del ZIP en memoria...")
+# 2. Caché estricto para evitar re-cálculos de CPU
+@st.cache_data(show_spinner="Cargando archivo ZIP en memoria...")
 def load_data(file_bytes):
     return procesar_zip_en_memoria(file_bytes)
 
-@st.cache_data(show_spinner="Procesando geometrías espaciales...")
+@st.cache_data(show_spinner="Vectorizando coordenadas espaciales...")
 def process_geospatial(df):
     return dataframe_a_geodataframe(df)
 
-@st.cache_data(show_spinner="Construyendo grafo de red...")
+@st.cache_data(show_spinner="Construyendo la red topológica...")
 def process_network(df):
     return construir_grafo(df)
 
-# 3. Sidebar (Controles y Carga)
+# 3. Sidebar
 with st.sidebar:
     st.title("🌍 Geoportal GPS")
     st.markdown("---")
@@ -66,7 +66,7 @@ if archivo_zip and 'proyecto_actual' in locals() and proyecto_actual:
     df_geo = process_geospatial(df_raw)
     grafo = process_network(df_raw)
     
-    # --- Dashboard de Métricas / KPIs ---
+    # KPIs Rápidos
     st.title(f"📍 Proyecto: {proyecto_actual}")
     
     col1, col2, col3, col4 = st.columns(4)
@@ -88,7 +88,7 @@ if archivo_zip and 'proyecto_actual' in locals() and proyecto_actual:
     
     st.markdown("---")
     
-    # --- Configuración del Mapa GIS ---
+    # Configuración del Mapa GIS
     centro_lat, centro_lon = -2.15, -79.9
     if not df_geo.empty and 'LATITUD' in df_geo.columns and df_geo['LATITUD'].notna().any():
         centro_lon = float(df_geo['LONGITUD'].mean())
@@ -111,11 +111,11 @@ if archivo_zip and 'proyecto_actual' in locals() and proyecto_actual:
         'ESTRUCTURA': {'color': '#34495e', 'radius': 4}
     }
 
-    # Límite de marcadores por capa para proteger la CPU del servidor
-    MAX_MARCADORES = 600
+    # Protección de CPU: límite seguro de marcadores simultáneos en cliente
+    MAX_MARCADORES_POR_CAPA = 500
 
     for capa in capas:
-        df_capa = df_geo[df_geo['TIPO_ELEMENTO'] == capa].head(MAX_MARCADORES)
+        df_capa = df_geo[df_geo['TIPO_ELEMENTO'] == capa].head(MAX_MARCADORES_POR_CAPA)
         
         for _, row in df_capa.iterrows():
             if pd.notna(row.get('LATITUD')) and pd.notna(row.get('LONGITUD')):
@@ -146,7 +146,7 @@ if archivo_zip and 'proyecto_actual' in locals() and proyecto_actual:
                     popup=folium.Popup(json.dumps(attrs), show=False)
                 ).add_to(m)
 
-    # Renderizado estricto del mapa: SOLO responde a clics en elementos
+    # Restringir retornos del mapa a clics en popups exclusivamente
     mapa_interactivo = st_folium(
         m, 
         height=550, 
@@ -154,7 +154,7 @@ if archivo_zip and 'proyecto_actual' in locals() and proyecto_actual:
         returned_objects=["last_object_clicked_popup"]
     )
     
-    # --- Panel Inferior: Inspección y Topología ---
+    # Panel de Inspección
     st.markdown("### 🔍 Inspección Técnica y Topología de Red")
     
     if mapa_interactivo and mapa_interactivo.get("last_object_clicked_popup"):
