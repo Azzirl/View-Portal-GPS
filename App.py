@@ -166,7 +166,7 @@ if archivo_zip and 'proyecto_actual' in locals() and proyecto_actual:
                     'KVA': str(row.get('KVA', 'N/A'))
                 }
 
-                # Marcador CAD con etiqueta visual
+                # Marcador CAD con etiqueta visual (CORREGIDO: html=html_icon)
                 html_icon = f"""
                 <div style="font-size: {style['size']}px; color: {style['bg']}; text-shadow: 1px 1px 2px black; text-align: center; line-height: 1;">
                     {style['icono']}
@@ -176,7 +176,7 @@ if archivo_zip and 'proyecto_actual' in locals() and proyecto_actual:
 
                 folium.Marker(
                     location=[row['LATITUD'], row['LONGITUD']],
-                    icon=folium.DivIcon(html_html=html_icon, icon_size=(100, 30), icon_anchor=(15, 15)),
+                    icon=folium.DivIcon(html=html_icon, icon_size=(100, 30), icon_anchor=(15, 15)),
                     tooltip=f"<b>{capa}</b>: {nombre}",
                     popup=folium.Popup(json.dumps(attrs), show=False)
                 ).add_to(grupo_capa)
@@ -231,7 +231,6 @@ if archivo_zip and 'proyecto_actual' in locals() and proyecto_actual:
     for i, capa_nombre in enumerate(capas_existentes):
         with tab_list[i]:
             df_tabla = df_geo[df_geo['TIPO_ELEMENTO'] == capa_nombre].copy()
-            # Limpiar columnas vacías o temporales
             cols_visibles = [c for c in df_tabla.columns if c not in ['PROYECTO', 'geometry'] and df_tabla[c].notna().any()]
             st.dataframe(df_tabla[cols_visibles], use_container_width=True, hide_index=True)
 else:
