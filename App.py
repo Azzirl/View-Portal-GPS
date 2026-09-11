@@ -4,12 +4,12 @@ import folium
 from streamlit_folium import st_folium
 import streamlit as st
 
-# Importar módulos de la carpeta utils
+# Módulos internos
 from utils.data_loader import procesar_zip_en_memoria, unificar_dataframes
 from utils.geospatial import dataframe_a_geodataframe
 from utils.network import construir_grafo, obtener_ruta_upstream
 
-# 1. Configuración de la página
+# 1. Configuración de página
 st.set_page_config(
     page_title="Geoportal de Ingeniería GPS",
     page_icon="🌍",
@@ -17,20 +17,20 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. Funciones cacheadas para rendimiento extremo
-@st.cache_data(show_spinner="Procesando archivo ZIP en memoria...")
+# 2. Funciones cacheadas optimizadas para consumo mínimo de memoria y CPU
+@st.cache_data(show_spinner="Leyendo archivos del ZIP en memoria...")
 def load_data(file_bytes):
     return procesar_zip_en_memoria(file_bytes)
 
-@st.cache_data(show_spinner="Calculando geometrías espaciales...")
+@st.cache_data(show_spinner="Procesando geometrías espaciales...")
 def process_geospatial(df):
     return dataframe_a_geodataframe(df)
 
-@st.cache_data(show_spinner="Generando topología de red...")
+@st.cache_data(show_spinner="Construyendo grafo de red...")
 def process_network(df):
     return construir_grafo(df)
 
-# 3. Sidebar (Panel Izquierdo)
+# 3. Sidebar (Controles y Carga)
 with st.sidebar:
     st.title("🌍 Geoportal GPS")
     st.markdown("---")
@@ -41,23 +41,22 @@ with st.sidebar:
         datos_proyectos = load_data(archivo_zip.getvalue())
         lista_proyectos = sorted(list(datos_proyectos.keys()))
         
-        st.success(f"✓ {len(lista_proyectos)} Proyectos cargados")
+        st.success(f"✓ {len(lista_proyectos)} Proyectos detectados")
         
         proyecto_actual = st.selectbox("Seleccionar Proyecto", lista_proyectos)
         
         st.markdown("### Capas del Geoportal")
         capas = st.multiselect(
-            "Seleccionar Capas Visibles",
+            "Capas Visibles",
             ["AIREADORES", "TABLEROS", "TRAFO", "PISCINAS", "POSTES", "TENSOR", "CBL", "ESTRUCTURA"],
             default=["AIREADORES", "TABLEROS", "TRAFO"]
         )
     else:
         st.info("Sube el archivo `Zonas.zip` para activar la plataforma.")
 
-# 4. Vista Principal
+# 4. Área Principal
 if archivo_zip and 'proyecto_actual' in locals() and proyecto_actual:
     
-    # Extraer y preparar datos del proyecto seleccionado
     df_raw = unificar_dataframes(datos_proyectos, proyecto_actual)
     
     if df_raw.empty:
@@ -67,7 +66,7 @@ if archivo_zip and 'proyecto_actual' in locals() and proyecto_actual:
     df_geo = process_geospatial(df_raw)
     grafo = process_network(df_raw)
     
-    # --- Dashboard de Métricas y KPIs ---
+    # --- Dashboard de Métricas / KPIs ---
     st.title(f"📍 Proyecto: {proyecto_actual}")
     
     col1, col2, col3, col4 = st.columns(4)
@@ -76,7 +75,6 @@ if archivo_zip and 'proyecto_actual' in locals() and proyecto_actual:
     total_tableros = len(df_raw[df_raw['TIPO_ELEMENTO'] == 'TABLEROS'])
     total_trafos = len(df_raw[df_raw['TIPO_ELEMENTO'] == 'TRAFO'])
     
-    # Sumatoria de Potencia / kVA
     potencia_total = 0.0
     if 'KVA' in df_raw.columns:
         potencia_total = pd.to_numeric(df_raw['KVA'], errors='coerce').fillna(0).sum()
@@ -90,8 +88,7 @@ if archivo_zip and 'proyecto_actual' in locals() and proyecto_actual:
     
     st.markdown("---")
     
-    # --- Mapa Interactivo GIS ---
-    # Determinar centro óptimo del mapa
+    # --- Configuración del Mapa GIS ---
     centro_lat, centro_lon = -2.15, -79.9
     if not df_geo.empty and 'LATITUD' in df_geo.columns and df_geo['LATITUD'].notna().any():
         centro_lon = float(df_geo['LONGITUD'].mean())
@@ -103,7 +100,6 @@ if archivo_zip and 'proyecto_actual' in locals() and proyecto_actual:
         tiles="cartodbpositron"
     )
     
-    # Simbología vectorizada por tipo de elemento
     estilos_capa = {
         'AIREADORES': {'color': '#2ecc71', 'radius': 5},
         'TABLEROS': {'color': '#e67e22', 'radius': 6},
@@ -115,16 +111,17 @@ if archivo_zip and 'proyecto_actual' in locals() and proyecto_actual:
         'ESTRUCTURA': {'color': '#34495e', 'radius': 4}
     }
 
-    # Cargar elementos en el mapa
+    # Límite de marcadores por capa para proteger la CPU del servidor
+    MAX_MARCADORES = 600
+
     for capa in capas:
-        df_capa = df_geo[df_geo['TIPO_ELEMENTO'] == capa]
+        df_capa = df_geo[df_geo['TIPO_ELEMENTO'] == capa].head(MAX_MARCADORES)
         
         for _, row in df_capa.iterrows():
             if pd.notna(row.get('LATITUD')) and pd.notna(row.get('LONGITUD')):
                 handle = str(row.get('HANDLE', 'N/A'))
                 nombre = str(row.get('NOMBRE', row.get('ID_HANDLE', handle)))
                 
-                # Diccionario limpio para transferir al panel de información
                 attrs = {
                     'TIPO_ELEMENTO': str(row.get('TIPO_ELEMENTO', '')),
                     'HANDLE': handle,
@@ -149,7 +146,7 @@ if archivo_zip and 'proyecto_actual' in locals() and proyecto_actual:
                     popup=folium.Popup(json.dumps(attrs), show=False)
                 ).add_to(m)
 
-    # Renderizado estricto del mapa (Evita recargas al mover o hacer zoom)
+    # Renderizado estricto del mapa: SOLO responde a clics en elementos
     mapa_interactivo = st_folium(
         m, 
         height=550, 
@@ -157,7 +154,7 @@ if archivo_zip and 'proyecto_actual' in locals() and proyecto_actual:
         returned_objects=["last_object_clicked_popup"]
     )
     
-    # --- Panel Lateral / Inferior de Detalles e Inspección de Red ---
+    # --- Panel Inferior: Inspección y Topología ---
     st.markdown("### 🔍 Inspección Técnica y Topología de Red")
     
     if mapa_interactivo and mapa_interactivo.get("last_object_clicked_popup"):
@@ -169,7 +166,6 @@ if archivo_zip and 'proyecto_actual' in locals() and proyecto_actual:
             with col_info:
                 st.subheader(f"📌 {datos_elemento.get('TIPO_ELEMENTO')}: {datos_elemento.get('NOMBRE')}")
                 
-                # Generar tabla resumen de atributos
                 df_atributos = pd.DataFrame(
                     list(datos_elemento.items()), 
                     columns=['Parámetro', 'Valor']
@@ -192,9 +188,9 @@ if archivo_zip and 'proyecto_actual' in locals() and proyecto_actual:
                 else:
                     st.warning("El elemento seleccionado no posee relaciones topológicas activas.")
         except Exception as err:
-            st.error(f"Error parseando los datos de la entidad: {err}")
+            st.error(f"Error procesando la entidad: {err}")
     else:
-        st.info("Haz clic sobre cualquier elemento (Punto) dentro del mapa para desplegar sus especificaciones de ingeniería y árbol de conexión.")
+        st.info("Haz clic sobre un elemento en el mapa para inspeccionar sus especificaciones técnicas y ruta de red.")
 else:
     if not archivo_zip:
-        st.warning("Esperando archivo de proyectos. Por favor sube `Zonas.zip` desde la barra lateral.")
+        st.warning("Esperando archivo de proyectos. Sube `Zonas.zip` desde la barra lateral.")
