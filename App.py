@@ -9,7 +9,7 @@ from utils.data_loader import procesar_zip_en_memoria, unificar_dataframes
 from utils.geospatial import dataframe_a_geodataframe
 from utils.network import construir_grafo, obtener_ruta_upstream
 
-# 1. Configuración de página
+# 1. Configuración de la página
 st.set_page_config(
     page_title="Geoportal de Ingeniería GPS",
     page_icon="🌍",
@@ -17,7 +17,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# 2. Funciones cacheadas optimizadas para consumo mínimo de memoria y CPU
+# 2. Funciones cacheadas para optimizar memoria y CPU
 @st.cache_data(show_spinner="Leyendo archivos del ZIP en memoria...")
 def load_data(file_bytes):
     return procesar_zip_en_memoria(file_bytes)
