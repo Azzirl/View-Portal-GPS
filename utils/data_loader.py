@@ -8,7 +8,6 @@ def procesar_zip_en_memoria(archivo_zip_input):
     """
     proyectos = {}
 
-    # Convertir bytes a un flujo IO operable si es necesario
     if isinstance(archivo_zip_input, bytes):
         archivo_zip_input = io.BytesIO(archivo_zip_input)
 
