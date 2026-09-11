@@ -10,13 +10,13 @@ def construir_grafo(df):
     if df.empty or 'HANDLE' not in df.columns:
         return G
 
-    # Agregar nodos con sus atributos
+    # Agregar nodos con sus atributos técnicos
     for _, row in df.iterrows():
         handle = str(row.get('HANDLE', '')).strip()
         if handle and handle != 'nan':
             G.add_node(handle, **row.to_dict())
 
-    # Construir relaciones topológicas
+    # Construir relaciones topológicas (padre -> hijo)
     for _, row in df.iterrows():
         h_hijo = str(row.get('HANDLE', '')).strip()
         if not h_hijo or h_hijo == 'nan':
@@ -54,3 +54,23 @@ def obtener_ruta_upstream(grafo, handle_inicio):
         return ruta
     except Exception:
         return []
+
+def extraer_tramos_red(grafo):
+    """
+    Extrae los pares de coordenadas origen-destino para dibujar las líneas eléctricas de la red en el mapa.
+    """
+    tramos = []
+    for u, v, data in grafo.edges(data=True):
+        if u in grafo.nodes and v in grafo.nodes:
+            n1 = grafo.nodes[u]
+            n2 = grafo.nodes[v]
+            if pd.notna(n1.get('LATITUD')) and pd.notna(n1.get('LONGITUD')) and \
+               pd.notna(n2.get('LATITUD')) and pd.notna(n2.get('LONGITUD')):
+                tramos.append({
+                    'origen_coords': [n1['LATITUD'], n1['LONGITUD']],
+                    'destino_coords': [n2['LATITUD'], n2['LONGITUD']],
+                    'tipo_relacion': data.get('tipo', 'CONEXION'),
+                    'origen_tipo': n1.get('TIPO_ELEMENTO', ''),
+                    'destino_tipo': n2.get('TIPO_ELEMENTO', '')
+                })
+    return tramos
