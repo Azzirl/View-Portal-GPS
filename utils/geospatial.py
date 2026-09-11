@@ -10,7 +10,6 @@ def dataframe_a_geodataframe(df, crs_origen="EPSG:32717"):
         df['LONGITUD'] = None
         return df
 
-    # Extracción vectorial de X e Y usando Expresiones Regulares en Pandas
     coords_str = df['GEORREFERENCIA'].astype(str)
     extracted = coords_str.str.extract(r"([-+]?\d*\.?\d+)\s*,\s*([-+]?\d*\.?\d+)")
 
